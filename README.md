@@ -392,3 +392,8 @@ Dependencies (Bun, the MongoDB driver, JSZip) are under their respective license
 In the spirit of [grzyClothTool](https://github.com/grzybeek/grzyClothTool)
 (grzybeek), with [CodeWalker](https://github.com/dexyfex/CodeWalker) (dexyfex) for
 the build pipeline. Built by the **feelgood team**.
+
+Community contributors:
+
+- **[DasEric](https://github.com/DasEric)** — durable realtime collaborative
+  workspaces ([#2](https://github.com/feelgoodrp-com/atelier-api/pull/2)).

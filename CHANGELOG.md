@@ -9,7 +9,7 @@ desktop app) are documented here. The format is based on
 > version tag + notes. Deployment happens by redeploying (on Dokploy, pushing
 > `master` auto-redeploys). See [RELEASING.md](RELEASING.md).
 
-## [Unreleased]
+## [0.3.0] — 2026-08-26
 
 ### Added
 
@@ -17,6 +17,7 @@ desktop app) are documented here. The format is based on
   field/entity/batch operations; authoritative reconnect snapshots; WebSocket
   operation broadcasts; enforced entity locks; full clothing/tattoo asset
   validation; and compare-and-swap serialization for multi-process safety.
+  Thanks to @DasEric ([#2]).
 
 ### Fixed
 
@@ -60,6 +61,8 @@ desktop app) are documented here. The format is based on
 - Initial sync server: Discord device auth, packs registry, team-cloud builds,
   admin web console.
 
+[0.3.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.3.0
 [0.2.1]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.2.1
+[#2]: https://github.com/feelgoodrp-com/atelier-api/pull/2
 [0.2.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.2.0
 [0.1.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.1.0
