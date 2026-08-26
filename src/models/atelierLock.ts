@@ -1,9 +1,10 @@
 /**
- * atelierLocks — short-lived edit locks on single drawables within a pack
+ * atelierLocks — short-lived edit locks on drawables/tattoos within a pack
  * ("X bearbeitet gerade ..."). A lock belongs to one (discordId, deviceId)
  * and expires 90s after the last heartbeat. Mongo's TTL monitor removes
  * expired docs eventually (lag up to ~60s), so EVERY read must additionally
- * check expiresAt — see isLockActive(). Unique index { packId, drawableEntryId }.
+ * check expiresAt — see isLockActive(). The historical `drawableEntryId`
+ * field now carries either entity UUID. Unique index { packId, drawableEntryId }.
  */
 
 import { col } from "../mongodb";

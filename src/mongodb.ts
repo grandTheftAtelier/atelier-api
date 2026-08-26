@@ -70,6 +70,8 @@ export async function pingMongo(): Promise<boolean> {
  * - atelierUploads: uploadId unique, per-user session lookup, TTL on expiresAt
  * - atelierPacks: packId unique, slug unique among non-archived, member lookups
  * - atelierRevisions: { packId, revision } unique
+ * - atelierWorkspaces: packId unique (one live collaboration head per pack)
+ * - atelierWorkspaceOperations: permanent operation-id dedupe per pack
  * - atelierLocks: { packId, drawableEntryId } unique, TTL on expiresAt
  */
 export async function ensureIndexes(): Promise<void> {
@@ -106,6 +108,12 @@ export async function ensureIndexes(): Promise<void> {
   await db.collection("atelierPacks").createIndex({ "members.discordId": 1 });
 
   await db.collection("atelierRevisions").createIndex({ packId: 1, revision: 1 }, { unique: true });
+
+  await db.collection("atelierWorkspaces").createIndex({ packId: 1 }, { unique: true });
+  await db.collection("atelierWorkspaceOperations").createIndex(
+    { packId: 1, operationId: 1 },
+    { unique: true },
+  );
 
   // Builds are cached per immutable revision — one document per (packId, revision).
   await db.collection("atelierBuilds").createIndex({ buildId: 1 }, { unique: true });

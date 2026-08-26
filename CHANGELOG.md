@@ -9,6 +9,23 @@ desktop app) are documented here. The format is based on
 > version tag + notes. Deployment happens by redeploying (on Dokploy, pushing
 > `master` auto-redeploys). See [RELEASING.md](RELEASING.md).
 
+## [Unreleased]
+
+### Added
+
+- **Durable realtime workspaces** with monotonically versioned, idempotent
+  field/entity/batch operations; authoritative reconnect snapshots; WebSocket
+  operation broadcasts; enforced entity locks; full clothing/tattoo asset
+  validation; and compare-and-swap serialization for multi-process safety.
+
+### Fixed
+
+- An idempotency-receipt storage failure after an already committed operation
+  no longer suppresses its WebSocket broadcast or success response.
+- New workspace/receipt rows use deterministic Mongo primary keys in addition
+  to secondary indexes, and oversized workspaces are rejected cleanly before
+  reaching MongoDB's document limit.
+
 ## [0.2.1] — 2026-07-18
 
 ### Fixed

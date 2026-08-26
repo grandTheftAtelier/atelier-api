@@ -19,6 +19,7 @@ import { registerAssetRoutes } from "./routes/assets";
 import { registerPackRoutes } from "./routes/packs";
 import { registerPresenceRoutes } from "./routes/presence";
 import { registerLockRoutes } from "./routes/locks";
+import { registerWorkspaceRoutes } from "./routes/workspaces";
 import { htmlPage } from "./web/pages";
 import { startUpdateChecks, getUpdateStatus, checkForUpdate } from "./version-check";
 import { registerBuildRoutes } from "./routes/builds";
@@ -135,6 +136,7 @@ async function main() {
   registerPackRoutes(router, env);
   registerPresenceRoutes(router, env);
   registerLockRoutes(router, env);
+  registerWorkspaceRoutes(router, env);
   registerBuildRoutes(router, env);
   registerRegistryRoutes(router, env);
   registerImportCreativeRoutes(router, env);

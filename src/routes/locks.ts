@@ -1,5 +1,6 @@
 /**
- * Drawable edit locks within a pack ("wird gerade bearbeitet"):
+ * Entity edit locks within a pack ("wird gerade bearbeitet"). The route keeps
+ * the historical `drawableEntryId` parameter for wire compatibility:
  *   POST   /api/v1/packs/:packId/locks                             acquire/extend (editor+)
  *   PUT    /api/v1/packs/:packId/locks/:drawableEntryId/heartbeat  extend own lock
  *   DELETE /api/v1/packs/:packId/locks/:drawableEntryId[?force=1]  release own / break others' (force)

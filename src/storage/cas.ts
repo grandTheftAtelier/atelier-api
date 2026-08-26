@@ -16,7 +16,9 @@ import { copyFile, rename, rm, stat } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import type { Env } from "../env";
 
-export const ASSET_KINDS = ["ydd", "ytd", "yld", "glb"] as const;
+// `blob` covers tattoo source images (png/jpg/webp/dds) while exportName keeps
+// the original extension. The CAS identity remains the content sha256.
+export const ASSET_KINDS = ["ydd", "ytd", "yld", "glb", "blob"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
 const SHA256_RE = /^[a-f0-9]{64}$/u;

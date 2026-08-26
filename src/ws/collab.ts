@@ -9,7 +9,8 @@
  * rooms via broadcastToPack().
  *
  * Client -> server: { type: "join", packId } | { type: "leave" } | { type: "ping" }
- * Server -> client: joined | presence | lock | head-changed | pong | error
+ * Server -> client: joined | presence | lock | workspace-changed |
+ *                  workspace-reset | head-changed | pong | error
  */
 
 import type { Server, ServerWebSocket, WebSocketHandler } from "bun";
@@ -19,6 +20,7 @@ import { requireUserFromToken } from "../auth/require";
 import { getFreshUser } from "../models/atelierUser";
 import { packRoleFor, packsCol } from "../models/atelierPack";
 import { locksCol, wsLock } from "../models/atelierLock";
+import { workspacesCol } from "../models/atelierWorkspace";
 
 export interface CollabSocketData {
   discordId: string;
@@ -165,7 +167,16 @@ async function handleJoin(ws: CollabSocket, packIdRaw: unknown): Promise<void> {
 
     if (ws.data.packId === packId) {
       // Already there — just resend the roster.
-      return send(ws, { type: "joined", packId, roster: rosterFor(packId) });
+      const workspace = await (await workspacesCol()).findOne(
+        { packId },
+        { projection: { version: 1 } },
+      );
+      return send(ws, {
+        type: "joined",
+        packId,
+        roster: rosterFor(packId),
+        workspaceVersion: workspace?.version ?? null,
+      });
     }
     await leaveRoom(ws); // switching rooms
 
@@ -183,7 +194,16 @@ async function handleJoin(ws: CollabSocket, packIdRaw: unknown): Promise<void> {
         if (other !== ws) send(other, { type: "presence", event: "join", user: presenceUser(ws) });
       }
     }
-    send(ws, { type: "joined", packId, roster: rosterFor(packId) });
+    const workspace = await (await workspacesCol()).findOne(
+      { packId },
+      { projection: { version: 1 } },
+    );
+    send(ws, {
+      type: "joined",
+      packId,
+      roster: rosterFor(packId),
+      workspaceVersion: workspace?.version ?? null,
+    });
   } catch (e) {
     console.error("[atelier-api] ws join failed:", e);
     send(ws, { type: "error", error: "internal_error" });

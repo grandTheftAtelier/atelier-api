@@ -10,9 +10,9 @@
  * pending gate, admin approve/lock/role, refresh rotation, logout, service token,
  * CAS chunk uploads (resume + ranged download), packs/revisions (team-wide
  * access: every approved user can list/read/clone any pack, viewer downgrade
- * blocks writes), drawable locks + WebSocket collab (rooms, presence, lock
- * broadcasts) and server-side builds + publish + registry (artifact ZIP,
- * cache, service lane).
+ * blocks writes), durable live workspaces, drawable locks + WebSocket collab
+ * (rooms, presence, lock/workspace broadcasts) and server-side builds +
+ * publish + registry (artifact ZIP, cache, service lane).
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -91,6 +91,8 @@ async function cleanupCasFixtures(env: Env): Promise<void> {
     if (packIds.length > 0) {
       await db.collection("atelierRevisions").deleteMany({ packId: { $in: packIds } });
       await db.collection("atelierLocks").deleteMany({ packId: { $in: packIds } });
+      await db.collection("atelierWorkspaces").deleteMany({ packId: { $in: packIds } });
+      await db.collection("atelierWorkspaceOperations").deleteMany({ packId: { $in: packIds } });
       await db.collection("atelierActivity").deleteMany({ "data.packId": { $in: packIds } });
       await db.collection("atelierBuilds").deleteMany({ packId: { $in: packIds } });
       await db.collection("atelierPacks").deleteMany({ packId: { $in: packIds } });
@@ -815,10 +817,136 @@ async function main() {
     headA,
   );
 
+  // --- durable live workspace -------------------------------------------
+  const workspaceProject = {
+    id: randomUUID(),
+    name: "Smoke Live Workspace",
+    createdAt: new Date().toISOString(),
+    settings: { dlcName: "smoke_live", defaultGender: "male" },
+    groups: [],
+    drawables: [drawable],
+    tattooCollection: { name: "smoke_live", label: "Tattoos" },
+    tattoos: [],
+  };
+  const viewerInit = await api(
+    `/api/v1/packs/${lockPackId}/workspace/initialize`,
+    viewer3Tok,
+    {
+      method: "POST",
+      body: JSON.stringify({ baseRevision: 1, project: workspaceProject }),
+    },
+  );
+  check("viewer cannot initialize live workspace (403)", viewerInit.status === 403, viewerInit);
+
+  const workspaceInit = await api(
+    `/api/v1/packs/${lockPackId}/workspace/initialize`,
+    adminTok,
+    {
+      method: "POST",
+      body: JSON.stringify({ baseRevision: 1, project: workspaceProject }),
+    },
+  );
+  check(
+    "initialize durable live workspace -> version 0",
+    workspaceInit.status === 201 && workspaceInit.body?.workspace?.version === 0,
+    workspaceInit.body,
+  );
+  const resetA = await wsA.waitFor((m) => m.type === "workspace-reset");
+  const resetB = await wsB.waitFor((m) => m.type === "workspace-reset");
+  check("workspace initialization broadcasts reset", resetA?.version === 0 && resetB?.version === 0);
+
+  const operationId = randomUUID();
+  const livePatch = {
+    operationId,
+    baseVersion: 0,
+    operation: {
+      kind: "entity.patch",
+      entityType: "drawable",
+      id: drawable.id,
+      patch: { label: "Smoke Jacket Live" },
+    },
+  };
+  const operationResult = await api(
+    `/api/v1/packs/${lockPackId}/workspace/operations`,
+    editor2Tok,
+    { method: "POST", body: JSON.stringify(livePatch) },
+  );
+  check(
+    "editor live operation commits atomically -> version 1",
+    operationResult.status === 200 && operationResult.body?.version === 1,
+    operationResult.body,
+  );
+  const changedA = await wsA.waitFor(
+    (m) => m.type === "workspace-changed" && m.operationId === operationId,
+  );
+  const changedB = await wsB.waitFor(
+    (m) => m.type === "workspace-changed" && m.operationId === operationId,
+  );
+  check(
+    "accepted operation broadcasts exact version to both clients",
+    changedA?.version === 1 && changedB?.version === 1,
+    changedA,
+  );
+
+  const duplicateResult = await api(
+    `/api/v1/packs/${lockPackId}/workspace/operations`,
+    editor2Tok,
+    { method: "POST", body: JSON.stringify(livePatch) },
+  );
+  check(
+    "operation retry is idempotent",
+    duplicateResult.status === 200 && duplicateResult.body?.duplicate === true,
+    duplicateResult.body,
+  );
+  const workspaceRead = await api(`/api/v1/packs/${lockPackId}/workspace`, viewer3Tok);
+  check(
+    "viewer reads authoritative live snapshot without a duplicate version bump",
+    workspaceRead.status === 200 &&
+      workspaceRead.body?.workspace?.version === 1 &&
+      workspaceRead.body?.workspace?.project?.drawables?.[0]?.label === "Smoke Jacket Live",
+    workspaceRead.body,
+  );
+
+  const liveLock = await api(`/api/v1/packs/${lockPackId}/locks`, adminTok, {
+    method: "POST",
+    body: JSON.stringify({ drawableEntryId: drawable.id }),
+  });
+  check("admin locks live drawable", liveLock.status === 200, liveLock.body);
+  const lockedOperation = await api(
+    `/api/v1/packs/${lockPackId}/workspace/operations`,
+    editor2Tok,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        operationId: randomUUID(),
+        baseVersion: 1,
+        operation: {
+          kind: "entity.patch",
+          entityType: "drawable",
+          id: drawable.id,
+          patch: { label: "Must be rejected" },
+        },
+      }),
+    },
+  );
+  check(
+    "foreign lock rejects live mutation without advancing the version",
+    lockedOperation.status === 409 && lockedOperation.body?.error === "locked",
+    lockedOperation.body,
+  );
+  await api(`/api/v1/packs/${lockPackId}/locks/${drawable.id}`, adminTok, {
+    method: "DELETE",
+  });
+
   // Viewer joins read-only via WS (lock POST stays 403, checked above).
   const wsV = await WsClient.connect(viewer3Tok);
   wsV.send({ type: "join", packId: lockPackId });
-  check("viewer ws join (read-only) works", (await wsV.waitFor((m) => m.type === "joined" && m.packId === lockPackId)) != null);
+  const joinedV = await wsV.waitFor((m) => m.type === "joined" && m.packId === lockPackId);
+  check(
+    "viewer ws join reports current workspace version",
+    joinedV?.workspaceVersion === 1,
+    joinedV,
+  );
 
   // Disconnect B: presence leave + auto-release of B's locks must broadcast.
   wsB.close();

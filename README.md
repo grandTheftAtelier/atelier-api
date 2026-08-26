@@ -63,7 +63,8 @@ atelier-api/
 │   │   ├── atelierUpload.ts atelierUploads (resumable sessions)
 │   │   ├── atelierPack.ts  atelierPacks (+ publish state)
 │   │   ├── atelierRevision.ts atelierRevisions (immutable snapshots)
-│   │   ├── atelierLock.ts  atelierLocks (advisory locks)
+│   │   ├── atelierWorkspace.ts durable mutable realtime collaboration head
+│   │   ├── atelierLock.ts  atelierLocks (enforced edit locks)
 │   │   ├── atelierBuild.ts atelierBuilds (server-build cache)
 │   │   └── activity.ts     atelierActivity (audit log)
 │   ├── storage/
@@ -75,7 +76,7 @@ atelier-api/
 │   │   └── admin/pages.ts  admin login + dashboard shell HTML
 │   ├── cloth/fivem-export.ts  FiveM resource builder (without YMTs, see below)
 │   ├── builds/queue.ts     In-process build queue (concurrency, artifacts)
-│   ├── ws/collab.ts        WebSocket rooms (presence, locks, build-status)
+│   ├── ws/collab.ts        WebSocket rooms (live operations, presence, locks)
 │   └── routes/
 │       ├── auth.ts         Discord OAuth start/callback (+ dev fake mode)
 │       ├── devices.ts      exchange/refresh/logout + device management
@@ -84,6 +85,7 @@ atelier-api/
 │       ├── uploads.ts      chunk uploads into the CAS
 │       ├── assets.ts       asset check + download (ETag/Range)
 │       ├── packs.ts        packs/revisions/members + publish
+│       ├── workspaces.ts   snapshots + atomic/idempotent live operations
 │       ├── presence.ts     presence REST
 │       ├── locks.ts        drawable locks
 │       ├── builds.ts       server builds (status + artifact ZIP)
@@ -108,7 +110,9 @@ atelier-api/
 | `atelierUploads`   | resumable upload sessions (chunks, TTL 48 h)                      | `uploadId` unique, TTL |
 | `atelierPacks`     | packs incl. `publish { visibility, targets, publishedRevision }`  | `packId` unique, `slug` (active) unique |
 | `atelierRevisions` | immutable drawable snapshots                                      | `{ packId, revision }` unique |
-| `atelierLocks`     | advisory locks per drawable (TTL)                                 | `{ packId, drawableEntryId }` unique, TTL |
+| `atelierWorkspaces`| authoritative live project, monotonic version + operation dedupe   | `packId` unique |
+| `atelierWorkspaceOperations` | permanent idempotency receipts for offline retries       | `{ packId, operationId }` unique |
+| `atelierLocks`     | enforced entity edit locks (TTL)                                  | `{ packId, drawableEntryId }` unique, TTL |
 | `atelierBuilds`    | server builds (cache per revision, artifact path, report)         | `buildId` unique, `{ packId, revision }` unique |
 
 ## Auth flow
@@ -200,6 +204,9 @@ Bun loads `.env` and `.env.local` automatically. Template: `.env.example`.
 | POST | `/api/v1/admin/users/:discordId/lock` | Admin | lock + revoke all devices |
 | POST | `/api/v1/admin/users/:discordId/role` | Admin | `{ role: "admin"\|"member" }` |
 | GET | `/api/v1/internal/ping` | `x-fg-service-token` | service-to-service probe |
+| GET | `/api/v1/packs/:packId/workspace` | Member+ | authoritative live snapshot + version |
+| POST | `/api/v1/packs/:packId/workspace/initialize` | Editor+ | initialize the durable collaboration head |
+| POST | `/api/v1/packs/:packId/workspace/operations` | Editor+ | atomic idempotent field/entity/batch operation |
 | POST | `/api/v1/packs/:packId/builds` | Editor+ | `{ revision: n\|"head" }` → 202 (build running) or 200 (cache) |
 | GET | `/api/v1/builds/:buildId` | Member+ | build status `{ queued\|running\|done\|error }` |
 | GET | `/api/v1/builds/:buildId/artifact` | Member+ | artifact ZIP (FiveM resource, without YMTs, see above) |
@@ -247,6 +254,7 @@ cp .env.example .env.local   # fill in the values
 bun run dev                  # with --watch
 bun run start                # without watch
 bun run lint                 # tsc --noEmit
+bun run selftest:live        # pure live reducer/validator checks
 bun run smoke                # E2E test (server must be running, fake mode active)
 bun run sync-roundtrip       # push/pull roundtrip like the app does it
 ```
