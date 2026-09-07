@@ -9,6 +9,33 @@ desktop app) are documented here. The format is based on
 > version tag + notes. Deployment happens by redeploying (on Dokploy, pushing
 > `master` auto-redeploys). See [RELEASING.md](RELEASING.md).
 
+## [0.4.0] — 2026-09-07
+
+### Added
+
+- **Discord notifications** (opt-in via `ATELIER_DISCORD_WEBHOOK_URL`). The
+  server posts to a webhook when a new user is awaiting approval (with a link to
+  the admin dashboard) and when a server build fails. Fire-and-forget and
+  mention-safe — it never delays an auth redirect or a build, and a hostile
+  username can't turn an alert into a mass ping.
+- **Readiness probe** `GET /health/ready` — `200` only when MongoDB is
+  reachable, else `503`, for load balancers / uptime monitors. `GET /health`
+  stays a liveness probe (always `200`) but now reports a real `mongo` flag.
+  Both read a background-polled snapshot, so they answer instantly even while
+  MongoDB is unreachable.
+- **Storage cleanup** in the admin dashboard: a read-only scan
+  (`GET …/admin/web/storage/gc`) previews reclaimable orphaned CAS assets
+  (uploaded but never committed to a revision), stale `tmp` uploads and
+  unreferenced build ZIPs; `POST` runs it. Each category is cross-checked
+  against MongoDB so nothing live is removed.
+- **OpenAPI** — a machine-readable spec at `GET /openapi.json` (OpenAPI 3.1) and
+  a zero-dependency browsable reference at `GET /docs`, both rendered from the
+  same source so they never drift.
+- **Admin dashboard UX** — a live pending-approvals badge in the sidebar,
+  search + status filtering on the Users tab, an admin/member **role** toggle
+  (with a matching `POST …/users/:discordId/role` endpoint) and a notifications
+  status chip on the overview.
+
 ## [0.3.0] — 2026-08-26
 
 ### Added
@@ -61,6 +88,7 @@ desktop app) are documented here. The format is based on
 - Initial sync server: Discord device auth, packs registry, team-cloud builds,
   admin web console.
 
+[0.4.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.4.0
 [0.3.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.3.0
 [0.2.1]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.2.1
 [#2]: https://github.com/feelgoodrp-com/atelier-api/pull/2

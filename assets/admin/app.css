@@ -79,6 +79,13 @@ a:hover { color: #fff; }
   color: #fff; border-color: rgba(88, 101, 242, 0.3);
 }
 .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.9; }
+.nav-item span:first-of-type { flex: 1; }
+.nav-badge {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--warn); color: #1a1400;
+}
 
 .sidebar-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
 .who { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
@@ -228,6 +235,26 @@ textarea { resize: vertical; min-height: 220px; line-height: 1.55;
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
 .hide { display: none !important; }
+[hidden] { display: none !important; }
+
+/* filter bar (search + segmented status filter) */
+.filterbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.filterbar .search { flex: 1; min-width: 180px; max-width: 320px; }
+.filterbar .search input { padding: 8px 12px; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); }
+.seg button { padding: 6px 12px; border-radius: 8px; border: 0; background: transparent;
+  color: var(--txt-2); font-family: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+.seg button:hover { color: #fff; }
+.seg button.active { background: rgba(88, 101, 242, 0.18); color: #fff; }
+.seg button .count { opacity: 0.6; margin-left: 5px; font-size: 11px; }
+
+/* small status chip (e.g. notifications on/off) */
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--txt-2); }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.on { color: var(--ok); background: rgba(74, 222, 128, 0.1); border-color: rgba(74, 222, 128, 0.25); }
+.chip.off { color: var(--txt-3); background: rgba(255, 255, 255, 0.04); }
 
 /* back link in detail view */
 .back { display: inline-flex; align-items: center; gap: 6px; color: var(--txt-2);

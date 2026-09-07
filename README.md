@@ -176,6 +176,7 @@ Bun loads `.env` and `.env.local` automatically. Template: `.env.example`.
 | `ATELIER_DISCORD_CLIENT_ID` | no* | `CHANGEME` | Discord app client ID |
 | `ATELIER_DISCORD_CLIENT_SECRET` | no* | `CHANGEME` | Discord app client secret |
 | `ATELIER_ADMIN_DISCORD_IDS` | no | empty | comma-separated IDs, always approved+admin |
+| `ATELIER_DISCORD_WEBHOOK_URL` | no | empty | Discord webhook for ops alerts (new user awaiting approval, failed build). Empty = off |
 | `ATELIER_JWT_SECRET` | **yes** | – | HS256 secret (min. 32 chars) |
 | `ATELIER_SERVICE_TOKEN` | **yes** | – | header `x-fg-service-token` for service-to-service |
 | `ATELIER_STORAGE_ROOT` | no | `./data` | file storage (`cas/`, `tmp/`, `builds/`) |
@@ -190,7 +191,10 @@ Bun loads `.env` and `.env.local` automatically. Template: `.env.example`.
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | `/health` | – | `{ ok, service, version }` |
+| GET | `/health` | – | Liveness — always 200; body has `{ ok, service, version, mongo }` |
+| GET | `/health/ready` | – | Readiness — 200 only when MongoDB is reachable, else 503 |
+| GET | `/openapi.json` | – | OpenAPI 3.1 spec (feed to a client generator) |
+| GET | `/docs` | – | Browsable API reference (rendered from the spec) |
 | GET | `/api/v1/auth/discord/start?redirect_uri=` | – | 302 to Discord (or fake login) |
 | GET | `/api/v1/auth/discord/callback` | – | OAuth callback, 302 to the app with `?code=` |
 | POST | `/api/v1/auth/device/exchange` | – | `{ code, redirect_uri, device }` → tokens |
@@ -245,6 +249,40 @@ Bun loads `.env` and `.env.local` automatically. Template: `.env.example`.
   also for "task" files), so imported packs keep exactly the slot the creative
   UI showed. Gender: male, unless `scope.pedGender == "female"`. Missing files →
   `skipped[]`.
+
+## Notifications
+
+Set `ATELIER_DISCORD_WEBHOOK_URL` to a Discord webhook and the server posts
+operational alerts there — no polling of the dashboard needed:
+
+- **New access request** — the first time a non-admin signs in and lands as
+  `pending`, with a link straight to the admin dashboard.
+- **Failed server build** — pack, revision, build id and the error.
+
+Sends are fire-and-forget (they never delay an auth redirect or a build), and
+`allowed_mentions` is locked to none, so a hostile username can never turn an
+alert into a mass ping. Unset = notifications are simply off.
+
+## Health & readiness
+
+- `GET /health` — **liveness**: always `200` while the process is up (this is
+  the container healthcheck). The body carries a cached `mongo` flag so a probe
+  can *see* a degraded server without the process being killed on a blip.
+- `GET /health/ready` — **readiness**: `200` only when MongoDB is reachable,
+  else `503`. For load balancers / uptime monitors that gate traffic on
+  dependencies. Both read a background-polled snapshot, so they answer instantly
+  even while Mongo is unreachable.
+
+## API reference (OpenAPI)
+
+- **Browsable reference:** `GET /docs` — a zero-dependency, self-contained page
+  rendered from the spec (so it never drifts).
+- **Machine-readable spec:** `GET /openapi.json` (OpenAPI 3.1).
+- **Typed client:** generate types from the spec, e.g.
+
+  ```bash
+  npx openapi-typescript http://127.0.0.1:3095/openapi.json -o atelier-api.d.ts
+  ```
 
 ## Running
 
@@ -314,7 +352,9 @@ from the desktop loopback flow; signed HttpOnly session cookie, 12 h, admin chec
 on every request). It offers:
 
 - **Overview** — storage size (CAS/builds/tmp) + metrics (assets, packs,
-  revisions, builds, users).
+  revisions, builds, users), a notifications-status chip, and a **storage
+  cleanup** tool: a read-only scan shows reclaimable orphaned assets, stale tmp
+  uploads and unreferenced build ZIPs before you confirm the deletion.
 - **Logs** — live server logs (SSE) + activity audit (`atelierActivity`).
 - **Packs & builds** — create/rebuild a server build per revision, download
   finished packages as **ZIP**.
@@ -322,7 +362,8 @@ on every request). It offers:
   template override (placeholders `{{files}}` / `{{data_files}}`); affects server
   builds only and takes effect on the next build. Without an override the manifest
   stays byte-identical to the desktop build.
-- **Users** — approve / lock.
+- **Users** — search + filter by status, approve / lock, and toggle the
+  admin/member role. The sidebar shows a live **pending-approvals** badge.
 
 Requirement: real Discord creds + the `/admin/callback` redirect URI (see above).
 Locally with fake auth, `/admin/login` logs in directly as
@@ -345,7 +386,9 @@ same-origin request:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `…/overview` | version, uptime, storage stats, counts |
+| GET | `…/overview` | version, uptime, storage stats, counts, `notifierConfigured` |
+| GET | `…/storage/gc` | dry-run: what a storage cleanup would reclaim |
+| POST | `…/storage/gc` | run the cleanup (optional `{ graceHours }`) |
 | GET | `…/activity?limit=` | activity audit log (`atelierActivity`) |
 | GET | `…/logs` | server-log ring-buffer snapshot |
 | GET | `…/logs/stream` | live server logs (SSE) |
@@ -355,7 +398,7 @@ same-origin request:
 | PUT | `…/packs/:packId/build-config` | `{ resourceName, fxmanifestTemplate }` → fxmanifest override |
 | GET | `…/builds` | all server builds |
 | GET | `…/builds/:buildId/download` | artifact ZIP |
-| GET / POST | `…/users` · `…/users/:discordId/approve` · `…/users/:discordId/lock` | user management |
+| GET / POST | `…/users` · `…/users/:discordId/approve` · `…/users/:discordId/lock` · `…/users/:discordId/role` | user management (list, approve, lock, set role) |
 
 ## Docker & CI
 

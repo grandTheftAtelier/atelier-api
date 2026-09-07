@@ -26,9 +26,11 @@ const NAV_ICONS: Record<string, string> = {
 };
 
 function navItem(route: string, label: string): string {
+  // The users item carries a live "pending approvals" badge (filled by app.js).
+  const badge = route === "users" ? `<span class="nav-badge" id="navBadgeUsers" hidden></span>` : "";
   return `<div class="nav-item" data-route="${route}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[route]}</svg>
-    <span>${label}</span></div>`;
+    <span>${label}</span>${badge}</div>`;
 }
 
 /** The dashboard shell. The session identity is rendered server-side (escaped). */

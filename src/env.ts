@@ -16,6 +16,12 @@ export interface Env {
   ATELIER_DISCORD_CLIENT_SECRET: string;
   /** Discord IDs that are always forced to status=approved + role=admin */
   ATELIER_ADMIN_DISCORD_IDS: string[];
+  /**
+   * Optional Discord webhook URL. When set, the server posts operational
+   * notifications there (a new user awaiting approval, a failed server build).
+   * Empty = notifications disabled.
+   */
+  ATELIER_DISCORD_WEBHOOK_URL: string;
   ATELIER_JWT_SECRET: string;
   ATELIER_SERVICE_TOKEN: string;
   ATELIER_STORAGE_ROOT: string;
@@ -96,6 +102,7 @@ export function loadEnv(): Env {
     ATELIER_DISCORD_CLIENT_ID: str("ATELIER_DISCORD_CLIENT_ID", ""),
     ATELIER_DISCORD_CLIENT_SECRET: str("ATELIER_DISCORD_CLIENT_SECRET", ""),
     ATELIER_ADMIN_DISCORD_IDS: list("ATELIER_ADMIN_DISCORD_IDS"),
+    ATELIER_DISCORD_WEBHOOK_URL: str("ATELIER_DISCORD_WEBHOOK_URL", ""),
     ATELIER_JWT_SECRET: required("ATELIER_JWT_SECRET", 32),
     ATELIER_SERVICE_TOKEN: required("ATELIER_SERVICE_TOKEN", 16),
     ATELIER_STORAGE_ROOT: str("ATELIER_STORAGE_ROOT", "./data"),
@@ -110,6 +117,17 @@ export function loadEnv(): Env {
 
   if (env.ATELIER_MAX_CHUNK_BYTES > env.ATELIER_MAX_ASSET_BYTES) {
     errors.push("ATELIER_MAX_CHUNK_BYTES must not exceed ATELIER_MAX_ASSET_BYTES");
+  }
+
+  if (env.ATELIER_DISCORD_WEBHOOK_URL) {
+    try {
+      const hook = new URL(env.ATELIER_DISCORD_WEBHOOK_URL);
+      if (hook.protocol !== "https:") {
+        errors.push("ATELIER_DISCORD_WEBHOOK_URL must be an https URL");
+      }
+    } catch {
+      errors.push(`ATELIER_DISCORD_WEBHOOK_URL is not a valid URL ("${env.ATELIER_DISCORD_WEBHOOK_URL}")`);
+    }
   }
 
   try {

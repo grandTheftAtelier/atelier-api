@@ -61,6 +61,34 @@ export async function pingMongo(): Promise<boolean> {
 }
 
 /**
+ * Cached Mongo health for the /health endpoints. A health probe MUST answer
+ * instantly: when Mongo is unreachable the driver takes its full
+ * serverSelectionTimeoutMS (10 s) to give up, and awaiting that on the request
+ * path blows past Bun.serve's idle timeout and drops the connection. So a
+ * background poller pings Mongo off the request path and the endpoints read
+ * this snapshot synchronously — request latency is never tied to Mongo.
+ */
+let mongoHealth: { ok: boolean; at: number } = { ok: false, at: 0 };
+let healthPoller: ReturnType<typeof setInterval> | null = null;
+
+export function getMongoHealth(): { ok: boolean; at: number } {
+  return mongoHealth;
+}
+
+export function startMongoHealthPolling(intervalMs = 15_000): void {
+  if (healthPoller) return;
+  const tick = () => {
+    void pingMongo().then((ok) => {
+      mongoHealth = { ok, at: Date.now() };
+    });
+  };
+  tick(); // seed immediately (async — first result lands shortly after boot)
+  healthPoller = setInterval(tick, intervalMs);
+  // Don't keep the process alive just for the health poller.
+  (healthPoller as unknown as { unref?: () => void }).unref?.();
+}
+
+/**
  * Ensure all indexes at startup:
  * - atelierUsers.discordId unique
  * - atelierAuthCodes: TTL on expiresAt, unique code

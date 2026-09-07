@@ -5,7 +5,7 @@
 
 import pkg from "../package.json";
 import { loadEnv, isDevFakeAuthActive } from "./env";
-import { configureMongo, ensureIndexes } from "./mongodb";
+import { configureMongo, ensureIndexes, getMongoHealth, startMongoHealthPolling } from "./mongodb";
 import { configureCas, ensureCasDirs } from "./storage/cas";
 import { Router } from "./router";
 import { configureClientIp, json, recordSocketIp } from "./http";
@@ -21,12 +21,15 @@ import { registerPresenceRoutes } from "./routes/presence";
 import { registerLockRoutes } from "./routes/locks";
 import { registerWorkspaceRoutes } from "./routes/workspaces";
 import { htmlPage } from "./web/pages";
+import { buildOpenApiSpec } from "./openapi";
+import { renderDocsPage } from "./web/docs";
 import { startUpdateChecks, getUpdateStatus, checkForUpdate } from "./version-check";
 import { registerBuildRoutes } from "./routes/builds";
 import { registerRegistryRoutes } from "./routes/registry";
 import { registerImportCreativeRoutes } from "./routes/import-creative";
 import { registerAdminWebRoutes } from "./routes/admin-web";
 import { configureBuildQueue } from "./builds/queue";
+import { configureNotifier } from "./notify/discord";
 import { log } from "./logging/log";
 import {
   collabWebsocket,
@@ -62,15 +65,27 @@ async function main() {
 
   const router = new Router(env);
 
+  // Liveness — always 200 while the process is up (the Docker healthcheck uses
+  // this). The body now tells the truth about MongoDB so a probe can see a
+  // degraded server without the process being killed on a transient blip.
   router.get("/health", () => {
     const u = getUpdateStatus();
     return json({
       ok: true,
       service: "atelier-api",
       version: pkg.version,
+      mongo: getMongoHealth().ok,
       updateAvailable: u.updateAvailable,
       latestVersion: u.latest,
     });
+  });
+
+  // Readiness — 200 only when the server can actually serve requests (MongoDB
+  // reachable), else 503. For load balancers / uptime monitors that should gate
+  // traffic on dependencies. Deliberately NOT the container healthcheck.
+  router.get("/health/ready", () => {
+    const mongo = getMongoHealth().ok;
+    return json({ ok: mongo, service: "atelier-api", version: pkg.version, mongo }, mongo ? 200 : 503);
   });
 
   // Update status — the desktop app / monitoring reads this to show a
@@ -120,6 +135,21 @@ async function main() {
       : json({ error: "not_found" }, 404),
   );
 
+  // Machine-readable API contract + a zero-dependency browsable reference.
+  const openApiSpec = buildOpenApiSpec(env.ATELIER_PUBLIC_ORIGIN);
+  router.get("/openapi.json", () =>
+    json(openApiSpec, 200, { "cache-control": "public, max-age=300" }));
+  router.get("/docs", () =>
+    new Response(renderDocsPage(openApiSpec as Record<string, unknown>), {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy":
+          "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; " +
+          "script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        "x-content-type-options": "nosniff",
+      },
+    }));
+
   // Service-to-service probe (header x-fg-service-token) — consumers come later.
   router.get("/api/v1/internal/ping", ({ req }) => {
     const fail = requireService(req, env);
@@ -145,8 +175,10 @@ async function main() {
   configureClientIp(env.ATELIER_TRUST_PROXY);
   configureCollab(env);
   configureBuildQueue(env);
+  configureNotifier(env);
   startLockExpirySweep();
   startUpdateChecks();
+  startMongoHealthPolling();
 
   const server = Bun.serve({
     hostname: env.HOST,

@@ -24,6 +24,7 @@ import { casPathFor } from "../storage/cas";
 import { logActivity } from "../models/activity";
 import { broadcastToPack } from "../ws/collab";
 import { buildFivemResourceZip, sanitizeDlcName, sanitizeResourceName } from "../cloth/fivem-export";
+import { notifyBuildFailed } from "../notify/discord";
 import { log } from "../logging/log";
 
 let queueEnv: Env | null = null;
@@ -322,6 +323,12 @@ async function runBuild(buildId: string): Promise<void> {
       packId: build.packId,
       revision: build.revision,
       error: message.slice(0, 500),
+    });
+    void notifyBuildFailed({
+      packId: build.packId,
+      revision: build.revision,
+      buildId,
+      error: message,
     });
     console.error(`[atelier-api] build ${buildId} failed:`, e);
   }

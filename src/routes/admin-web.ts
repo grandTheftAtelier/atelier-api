@@ -49,6 +49,8 @@ import { buildsCol } from "../models/atelierBuild";
 import { ensureBuild, forceRebuild } from "../builds/queue";
 import { artifactResponse } from "./builds";
 import { computeStorageStats } from "../storage/stats";
+import { collectGarbage } from "../storage/gc";
+import { isNotifierConfigured } from "../notify/discord";
 import { recentLogs, subscribeLogs } from "../logging/log";
 import { DEFAULT_FXMANIFEST_TEMPLATE } from "../cloth/fivem-export";
 import { renderAdminDashboard, renderAdminLogin, adminHtml } from "../web/admin/pages";
@@ -195,6 +197,7 @@ export function registerAdminWebRoutes(router: Router, env: Env): void {
     return json({
       version: pkg.version,
       uptimeSec: Math.floor((Date.now() - startedAt) / 1000),
+      notifierConfigured: isNotifierConfigured(),
       storage,
       counts: {
         users: { total: usersTotal, approved: usersApproved, pending: usersPending, locked: usersLocked },
@@ -204,6 +207,36 @@ export function registerAdminWebRoutes(router: Router, env: Env): void {
         assets: assetsCount,
       },
     });
+  });
+
+  // ---------------------------------------------------------- storage GC
+  // Read-only preview of what a cleanup would reclaim.
+  router.get(`${P}/storage/gc`, async ({ req }) => {
+    const s = gate(req, env);
+    if (s instanceof Response) return s;
+    const report = await collectGarbage({ dryRun: true });
+    return json(report);
+  });
+
+  // Perform the cleanup (same-origin gated). Optional `{ graceHours }` overrides
+  // the default 48 h safety window (clamped to at least 1 h).
+  router.post(`${P}/storage/gc`, async ({ req }) => {
+    const s = gateMutation(req, env);
+    if (s instanceof Response) return s;
+    const body = (await readJsonBody(req)) ?? {};
+    let graceMs: number | undefined;
+    if (typeof body.graceHours === "number" && Number.isFinite(body.graceHours)) {
+      graceMs = Math.max(1, body.graceHours) * 3.6e6;
+    }
+    const report = await collectGarbage({ dryRun: false, graceMs });
+    void logActivity("admin_storage_gc", s.discordId, {
+      totalCount: report.totalCount,
+      totalBytes: report.totalBytes,
+      orphanAssets: report.orphanAssets.count,
+      staleTmp: report.staleTmp.count,
+      orphanBuilds: report.orphanBuilds.count,
+    });
+    return json(report);
   });
 
   // ------------------------------------------------------------- activity
@@ -490,5 +523,25 @@ export function registerAdminWebRoutes(router: Router, env: Env): void {
     await kickUserEverywhere(discordId);
     void logActivity("user_locked", s.discordId, { discordId, revokedDevices, via: "web" });
     return json({ user: adminUserView(result), revokedDevices });
+  });
+
+  router.post(`${P}/users/:discordId/role`, async ({ req, params }) => {
+    const s = gateMutation(req, env);
+    if (s instanceof Response) return s;
+    const body = await readJsonBody(req);
+    if (!body || (body.role !== "admin" && body.role !== "member")) return err("invalid_role", 400);
+    const discordId = params.discordId!;
+    // Env-configured admins are forced to role=admin on every request, so a
+    // web demotion would silently bounce back — reject it up front.
+    if (isEnvAdmin(env, discordId)) return err("cannot_change_env_admin", 400);
+    const users = await usersCol();
+    const result = await users.findOneAndUpdate(
+      { discordId },
+      { $set: { role: body.role } },
+      { returnDocument: "after" },
+    );
+    if (!result) return err("user_not_found", 404);
+    void logActivity("user_role", s.discordId, { discordId, role: body.role, via: "web" });
+    return json({ user: adminUserView(result) });
   });
 }

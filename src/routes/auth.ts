@@ -23,6 +23,7 @@ import { htmlAuthError } from "../web/pages";
 import { hasDiscordCredentials, isDevFakeAuthActive, type Env } from "../env";
 import { signJwt, verifyJwt } from "../auth/jwt";
 import { upsertLoginUser } from "../models/atelierUser";
+import { notifyPendingUser } from "../notify/discord";
 import { createAuthCode } from "../models/authCode";
 import { logActivity } from "../models/activity";
 
@@ -56,6 +57,16 @@ async function issueCodeAndRedirect(
   const user = await upsertLoginUser(env, discordId, username, avatar);
   const code = await createAuthCode(user.discordId, redirectUri);
   void logActivity("user_login", user.discordId, { username: user.username });
+
+  // First-ever login of a non-admin lands as `pending`: on insert both stamps
+  // come from the same `now`, so equal timestamps + pending status means this
+  // is a brand-new access request — ping the admins in Discord (opt-in).
+  if (
+    user.status === "pending" &&
+    user.createdAt.getTime() === user.lastLoginAt.getTime()
+  ) {
+    void notifyPendingUser({ discordId: user.discordId, username: user.username });
+  }
   const target = new URL(redirectUri);
   target.searchParams.set("code", code);
   return redirect(target.toString(), extraHeaders);
