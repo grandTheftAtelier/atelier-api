@@ -4,7 +4,7 @@
 
 # atelier-api
 
-**The backend for [atelier](https://github.com/feelgoodrp-com/atelier)** —
+**The backend for [atelier](https://github.com/grandTheftAtelier/atelier)** —
 Discord login, team cloud, storage and server builds for the GTA-V
 addon-clothing tool.
 
@@ -13,8 +13,8 @@ addon-clothing tool.
 &nbsp;![MongoDB](https://img.shields.io/badge/MongoDB-1f1f1f)
 &nbsp;![Port 3095](https://img.shields.io/badge/Port-3095-1f1f1f)
 
-[**atelier**](https://github.com/feelgoodrp-com/atelier) ·
-[In-game viewer](https://github.com/feelgoodrp-com/atelier-fivem) ·
+[**atelier**](https://github.com/grandTheftAtelier/atelier) ·
+[In-game viewer](https://github.com/grandTheftAtelier/atelier-fivem) ·
 [Discord](https://discord.gg/blpd)
 
 </div>
@@ -427,7 +427,7 @@ same-origin request:
 atelier-api is released under the **[PolyForm Noncommercial License 1.0.0](LICENSE.md)**:
 using, modifying and sharing for **noncommercial** purposes is allowed — **selling
 and commercial use are not permitted** (please keep the copyright notice from the
-license intact). Part of [atelier](https://github.com/feelgoodrp-com/atelier).
+license intact). Part of [atelier](https://github.com/grandTheftAtelier/atelier).
 Dependencies (Bun, the MongoDB driver, JSZip) are under their respective licenses.
 
 ## Credits
@@ -439,4 +439,4 @@ the build pipeline. Built by the **feelgood team**.
 Community contributors:
 
 - **[DasEric](https://github.com/DasEric)** — durable realtime collaborative
-  workspaces ([#2](https://github.com/feelgoodrp-com/atelier-api/pull/2)).
+  workspaces ([#2](https://github.com/grandTheftAtelier/atelier-api/pull/2)).

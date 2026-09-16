@@ -11,7 +11,7 @@
 
 import pkg from "../package.json";
 
-const REPO = process.env.ATELIER_API_UPDATE_REPO ?? "feelgoodrp-com/atelier-api";
+const REPO = process.env.ATELIER_API_UPDATE_REPO ?? "grandTheftAtelier/atelier-api";
 const BRANCH = process.env.ATELIER_API_UPDATE_BRANCH ?? "master";
 const ENABLED = (process.env.ATELIER_API_UPDATE_CHECK ?? "on") !== "off";
 const INTERVAL_MS = 30 * 60 * 1000; // 30 min

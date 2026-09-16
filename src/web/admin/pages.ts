@@ -43,7 +43,7 @@ export function renderAdminDashboard(
     ? `<img class="avatar" src="${escapeHtml(session.avatar)}" alt="" referrerpolicy="no-referrer" />`
     : `<div class="avatar"></div>`;
   const updateBadge = update?.updateAvailable
-    ? `<a href="https://github.com/feelgoodrp-com/atelier-api" target="_blank" rel="noreferrer"
+    ? `<a href="https://github.com/grandTheftAtelier/atelier-api" target="_blank" rel="noreferrer"
          title="Redeploy this server to update"
          style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;text-decoration:none;color:#fbbf24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);border-radius:999px;padding:4px 11px">
          <span style="width:6px;height:6px;border-radius:50%;background:#fbbf24"></span>Update available${update.latest ? ` · v${escapeHtml(update.latest)}` : ""}</a>`

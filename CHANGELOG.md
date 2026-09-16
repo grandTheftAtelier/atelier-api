@@ -88,9 +88,9 @@ desktop app) are documented here. The format is based on
 - Initial sync server: Discord device auth, packs registry, team-cloud builds,
   admin web console.
 
-[0.4.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.4.0
-[0.3.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.3.0
-[0.2.1]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.2.1
-[#2]: https://github.com/feelgoodrp-com/atelier-api/pull/2
-[0.2.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.2.0
-[0.1.0]: https://github.com/feelgoodrp-com/atelier-api/releases/tag/v0.1.0
+[0.4.0]: https://github.com/grandTheftAtelier/atelier-api/releases/tag/v0.4.0
+[0.3.0]: https://github.com/grandTheftAtelier/atelier-api/releases/tag/v0.3.0
+[0.2.1]: https://github.com/grandTheftAtelier/atelier-api/releases/tag/v0.2.1
+[#2]: https://github.com/grandTheftAtelier/atelier-api/pull/2
+[0.2.0]: https://github.com/grandTheftAtelier/atelier-api/releases/tag/v0.2.0
+[0.1.0]: https://github.com/grandTheftAtelier/atelier-api/releases/tag/v0.1.0

@@ -6,7 +6,7 @@ noncommercial use.
 
 ## Ways to contribute
 
-- 🐛 **Bug?** Open an [issue](https://github.com/feelgoodrp-com/atelier-api/issues/new/choose)
+- 🐛 **Bug?** Open an [issue](https://github.com/grandTheftAtelier/atelier-api/issues/new/choose)
   with steps to reproduce.
 - ✨ **Idea / feature?** Open an issue to discuss it first, especially for larger
   changes.
